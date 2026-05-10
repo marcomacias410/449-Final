@@ -1,0 +1,11 @@
+package com.cpsc449.gamebacklog.repository;
+
+import com.cpsc449.gamebacklog.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
+}

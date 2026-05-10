@@ -1,0 +1,555 @@
+{
+  "info": {
+    "name": "Game Backlog Tracker - CPSC 449 Final",
+    "description": "Pre-wired collection for the Game Backlog Tracker REST API.\n\nHow it works:\n- Register and Login auto-save the JWT into the {{token}} collection variable.\n- All other requests use that token automatically via collection-level Bearer auth.\n- For the data-isolation demo, User B's token goes into {{tokenB}}.\n\nDemo order for the screen recording:\n1. Register (User A)\n2. Login (User A) - optional, register already gave you a token\n3. Create Game\n4. Get All Games\n5. Get Game by ID\n6. Update Game\n7. Delete Game\n8. (Optional) 401 demo: No Token Request\n9. (Optional) 403 demo: Register User B then GET User A's game",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "cpsc449-game-backlog-tracker"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "tokenB", "value": "", "type": "string" },
+    { "key": "gameId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register (User A)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alex\",\n  \"email\": \"alex@example.com\",\n  \"password\": \"supersecret123\"\n}"
+            },
+            "description": "Creates a new user. Expects 201 Created with a JWT in the body. The test script saves the JWT to {{token}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has JWT', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "    console.log('Saved token for User A');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (User A)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alex@example.com\",\n  \"password\": \"supersecret123\"\n}"
+            },
+            "description": "Logs in an existing user. Expects 200 OK with a JWT. The test script saves the JWT to {{token}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response has JWT', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.token).to.be.a('string').and.not.empty;",
+                  "    pm.collectionVariables.set('token', json.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Wrong Password (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"alex@example.com\",\n  \"password\": \"wrongpassword\"\n}"
+            },
+            "description": "Demonstrates 401 with a generic message - never reveals whether email or password was wrong."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test('Generic error message', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.match(/invalid email or password/i);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register Duplicate Email (expect 409)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"alex2\",\n  \"email\": \"alex@example.com\",\n  \"password\": \"anotherpassword\"\n}"
+            },
+            "description": "Demonstrates 409 Conflict on duplicate email. Run this AFTER 'Register (User A)'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Games (CRUD)",
+      "item": [
+        {
+          "name": "Create Game",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hollow Knight\",\n  \"platform\": \"PC\",\n  \"genre\": \"Metroidvania\",\n  \"status\": \"PLAYING\",\n  \"hoursPlayed\": 12.5,\n  \"rating\": 9,\n  \"notes\": \"Loving the atmosphere\"\n}"
+            },
+            "description": "Creates a game. The userId is taken from the JWT - even if you put a different one in the body, it's ignored. Expects 201 Created. Test script saves the new id to {{gameId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test('Response has id and userId', function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.id).to.be.a('number');",
+                  "    pm.expect(json.userId).to.be.a('number');",
+                  "    pm.collectionVariables.set('gameId', json.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Games (only mine)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "description": "Returns ONLY the authenticated user's games - never anyone else's, even if they share IDs."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Response is an array', function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Game by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games/{{gameId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games", "{{gameId}}"]
+            },
+            "description": "Returns a single game. 404 if not found, 403 if exists but belongs to another user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Game",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/games/{{gameId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games", "{{gameId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hollow Knight\",\n  \"platform\": \"PC\",\n  \"genre\": \"Metroidvania\",\n  \"status\": \"COMPLETED\",\n  \"hoursPlayed\": 38.0,\n  \"rating\": 10,\n  \"notes\": \"Beat the Radiance - what a game.\"\n}"
+            },
+            "description": "Marks the game as COMPLETED. Only the owner can update - 403 otherwise, 404 if missing."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Status updated to COMPLETED', function () {",
+                  "    pm.expect(pm.response.json().status).to.eql('COMPLETED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Game",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games/{{gameId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games", "{{gameId}}"]
+            },
+            "description": "Deletes the game. Only the owner can delete. Expects 204 No Content."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204 No Content', function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Negative tests",
+      "item": [
+        {
+          "name": "No Token (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "description": "Demonstrates that a request with no Authorization header gets 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed Token (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer this.is.not.a.real.jwt" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "description": "Demonstrates that a malformed token gets 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 Unauthorized', function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Nonexistent Game (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games/9999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games", "9999999"]
+            },
+            "description": "Demonstrates 404 for a game ID that doesn't exist."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Bad Validation (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"PC\"\n}"
+            },
+            "description": "Demonstrates 400 Bad Request when required fields (title, status) are missing."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Data isolation demo (User B)",
+      "item": [
+        {
+          "name": "Register (User B)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"jamie\",\n  \"email\": \"jamie@example.com\",\n  \"password\": \"differentpass456\"\n}"
+            },
+            "description": "Creates a second user. Saves their token to {{tokenB}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.collectionVariables.set('tokenB', pm.response.json().token);",
+                  "console.log('Saved token for User B');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User B tries to GET User A's game (expect 403)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenB}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games/{{gameId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games", "{{gameId}}"]
+            },
+            "description": "Uses User B's token to try to access User A's game by ID. Expects 403 Forbidden - a valid token, but not the owner."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 Forbidden', function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "User B GETs all games (expect empty list)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{tokenB}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/games",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "games"]
+            },
+            "description": "User B's library is empty - User A's games never appear."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('User B sees zero games', function () {",
+                  "    pm.expect(pm.response.json()).to.be.an('array').that.has.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
