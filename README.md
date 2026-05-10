@@ -64,11 +64,9 @@ docker run -d --name game-backlog \
 docker logs game-backlog
 ```
 
-You should see the Spring Boot banner and a line like:
-```
-Tomcat started on port 8080 (http) with context path '/'
-Started GameBacklogApplication in X.XXX seconds
-```
+You should see the Spring Boot banner and a line confirming Tomcat started on port 8080:
+
+![Spring Boot startup banner in docker logs](/images/docker-logs-banner.png)
 
 ### Stop and remove the container
 
@@ -113,123 +111,48 @@ Base URL: `http://localhost:8080`
 | 409 | Email already registered |
 | 500 | Unexpected server error (responses are still clean JSON) |
 
-All error responses look like this:
-```json
-{
-  "status": 404,
-  "message": "Game with id 99 not found",
-  "timestamp": "2026-04-17T10:30:00"
-}
-```
+All error responses follow this format:
+
+![Example clean error response in JSON](/images/error-response-example.png)
 
 ---
 
 ## Postman examples
 
 ### 1. Register a new user
-```
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
 
-{
-  "username": "alex",
-  "email": "alex@example.com",
-  "password": "supersecret123"
-}
-```
-**Response - 201 Created**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiJ9...",
-  "tokenType": "Bearer",
-  "userId": 1,
-  "email": "alex@example.com",
-  "username": "alex",
-  "expiresInMs": 86400000
-}
-```
+`POST http://localhost:8080/api/auth/register` — sends username, email, and password. The server hashes the password with BCrypt and returns a JWT.
+
+![Register request and 201 Created response](/images/01-register.png)
 
 ### 2. Log in
-```
-POST http://localhost:8080/api/auth/login
-Content-Type: application/json
 
-{
-  "email": "alex@example.com",
-  "password": "supersecret123"
-}
-```
-**Response - 200 OK** (same shape as register)
+`POST http://localhost:8080/api/auth/login` — sends email and password. Returns a fresh JWT on success.
+
+![Login request and 200 OK response](/images/02-login.png)
 
 ### 3. Create a game (protected)
-```
-POST http://localhost:8080/api/games
-Authorization: Bearer <paste-the-token>
-Content-Type: application/json
 
-{
-  "title": "Hollow Knight",
-  "platform": "PC",
-  "genre": "Metroidvania",
-  "status": "PLAYING",
-  "hoursPlayed": 12.5,
-  "rating": 9,
-  "notes": "Loving the atmosphere"
-}
-```
-**Response - 201 Created**
+`POST http://localhost:8080/api/games` with the Bearer token attached. The `userId` is taken from the JWT, never the request body.
+
+![Create Game request and 201 Created response](/images/03-create-game.png)
 
 ### 4. List my games (protected)
-```
-GET http://localhost:8080/api/games
-Authorization: Bearer <token>
-```
-**Response - 200 OK** - array of games owned by the authenticated user only.
+
+`GET http://localhost:8080/api/games` — returns an array containing only the authenticated user's games.
+
+![Get All Games request and 200 OK response with games array](/images/04-get-all-games.png)
 
 ### 5. Update a game (protected)
-```
-PUT http://localhost:8080/api/games/1
-Authorization: Bearer <token>
-Content-Type: application/json
 
-{
-  "title": "Hollow Knight",
-  "platform": "PC",
-  "genre": "Metroidvania",
-  "status": "COMPLETED",
-  "hoursPlayed": 38.0,
-  "rating": 10,
-  "notes": "Beat the Radiance"
-}
-```
+`PUT http://localhost:8080/api/games/{id}` — only the owner may update.
+
+![Update Game request and 200 OK response](/images/05-update-game.png)
 
 ### 6. Delete a game (protected)
-```
-DELETE http://localhost:8080/api/games/1
-Authorization: Bearer <token>
-```
-**Response - 204 No Content**
 
-### 7. Demonstrate auth failure
-A request to `/api/games` with **no** token returns 401:
-```json
-{
-  "status": 401,
-  "message": "Authentication required: missing, invalid, or expired token",
-  "timestamp": "2026-04-17T10:30:00"
-}
-```
+`DELETE http://localhost:8080/api/games/{id}` — only the owner may delete. Returns 204 No Content.
 
-### 8. Demonstrate data isolation
-Register a second user, get their token, and try to GET game id `1` (which belongs to the first user) using the second user's token. You'll get a 403:
-```json
-{
-  "status": 403,
-  "message": "You do not have permission to access this game",
-  "timestamp": "2026-04-17T10:30:00"
-}
-```
+![Delete Game request and 204 No Content response](/images/06-delete-game.png)
 
 ---
-
-
